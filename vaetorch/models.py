@@ -38,6 +38,7 @@ class AE:
             if early_stop is not None:
                 val_loss /= len(val_loader)
                 if val_loss < best_val_loss:
+                    early_counter = 0
                     best_val_loss = val_loss
                     if self.path is not None:
                         self.save_model()
