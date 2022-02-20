@@ -46,6 +46,6 @@ def get_celeba_loaders(images_size, batch_size):
     )
 
     train_loader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
