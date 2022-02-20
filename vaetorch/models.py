@@ -1,6 +1,7 @@
 import torch
 import vaetorch
 from tqdm import tqdm
+from torchvision.utils import save_image
 
 
 class AE:
@@ -81,9 +82,11 @@ class AE:
 
 
 class VAE(AE):
-    def __init__(self, network, rec_loss, kl_loss, optimizer, save_path=None):
+    def __init__(self, network, rec_loss, kl_loss, optimizer, save_path=None, flat_input=True, save_img_path=None):
         super(VAE, self).__init__(network, rec_loss, optimizer, save_path)
         self.kl_loss = kl_loss
+        self.flat_input = flat_input
+        self.save_img_path = save_img_path
 
     def train(self, train_loader, val_loader, n_epochs, early_stop=None):
         early_counter = 0
@@ -95,7 +98,8 @@ class VAE(AE):
             # train step
             for batch_idx, (X, y) in tqdm(enumerate(train_loader), total=len(train_loader)):
                 self.optimizer.zero_grad()
-                X = X.view(X.shape[0], -1).to(vaetorch.device)
+                if self.flat_input:
+                    X = X.view(X.shape[0], -1).to(vaetorch.device)
                 mu, log_var, X_rec = self.net(X)
                 rec_loss = self.rec_loss(X, X_rec)
                 kl_loss = self.kl_loss(mu, log_var)
@@ -108,10 +112,22 @@ class VAE(AE):
 
             # validation step
             val_loss = 0.0
+            first = True
             for batch_idx, (X, y) in enumerate(val_loader):
                 with torch.no_grad():
-                    X = X.view(X.shape[0], -1).to(vaetorch.device)
+                    if self.flat_input:
+                        X = X.view(X.shape[0], -1).to(vaetorch.device)
                     mu, log_var, X_rec = self.net(X)
+                    if self.save_img_path is not None and first:
+                        # save grid of images after the epoch
+                        save_image(X_rec[50:].cpu(), self.save_img_path + "/epoch_" + str(epoch + 1) + "-rec.jpg",
+                                   nrow=10)
+                        # generate images
+                        eps = torch.randn((50, self.net.latent_size))
+                        gen_images = self.net.dec(eps)
+                        save_image(gen_images, self.save_img_path + "/epoch_" + str(epoch + 1) + "-gen.jpg",
+                                   nrow=10)
+                        first = False
                     rec_loss = self.rec_loss(X, X_rec)
                     kl_loss = self.kl_loss(mu, log_var)
                     loss = kl_loss + rec_loss
@@ -136,12 +152,14 @@ class VAE(AE):
                                                             val_loss))
 
     def predict(self, x):
-        x = x.view(x.shape[0], -1).to(vaetorch.device)
+        if self.flat_input:
+            x = x.view(x.shape[0], -1).to(vaetorch.device)
         _, _, rec_x = self.net(x)
         return rec_x
 
     def get_latent(self, x):
-        x = x.view(x.shape[0], -1).to(vaetorch.device)
+        if self.flat_input:
+            x = x.view(x.shape[0], -1).to(vaetorch.device)
         mu, _ = self.net.enc(x)
         return mu
 
@@ -149,7 +167,8 @@ class VAE(AE):
         test_loss = 0.0
         for batch_idx, (X, y) in enumerate(test_loader):
             with torch.no_grad():
-                X = X.view(X.shape[0], -1).to(vaetorch.device)
+                if self.flat_input:
+                    X = X.view(X.shape[0], -1).to(vaetorch.device)
                 mu, log_var, X_rec = self.net(X)
                 rec_loss = self.rec_loss(X, X_rec)
                 kl_loss = self.kl_loss(mu, log_var)
