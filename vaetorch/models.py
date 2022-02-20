@@ -98,8 +98,9 @@ class VAE(AE):
             # train step
             for batch_idx, (X, y) in tqdm(enumerate(train_loader), total=len(train_loader)):
                 self.optimizer.zero_grad()
+                X = X.to(vaetorch.device)
                 if self.flat_input:
-                    X = X.view(X.shape[0], -1).to(vaetorch.device)
+                    X = X.view(X.shape[0], -1)
                 mu, log_var, X_rec = self.net(X)
                 rec_loss = self.rec_loss(X, X_rec)
                 kl_loss = self.kl_loss(mu, log_var)
@@ -115,8 +116,9 @@ class VAE(AE):
             first = True
             for batch_idx, (X, y) in enumerate(val_loader):
                 with torch.no_grad():
+                    X = X.to(vaetorch.device)
                     if self.flat_input:
-                        X = X.view(X.shape[0], -1).to(vaetorch.device)
+                        X = X.view(X.shape[0], -1)
                     mu, log_var, X_rec = self.net(X)
                     if self.save_img_path is not None and first:
                         # save grid of images after the epoch
@@ -152,14 +154,16 @@ class VAE(AE):
                                                             val_loss))
 
     def predict(self, x):
+        x = x.to(vaetorch.device)
         if self.flat_input:
-            x = x.view(x.shape[0], -1).to(vaetorch.device)
+            x = x.view(x.shape[0], -1)
         _, _, rec_x = self.net(x)
         return rec_x
 
     def get_latent(self, x):
+        x = x.to(vaetorch.device)
         if self.flat_input:
-            x = x.view(x.shape[0], -1).to(vaetorch.device)
+            x = x.view(x.shape[0], -1)
         mu, _ = self.net.enc(x)
         return mu
 
@@ -167,8 +171,9 @@ class VAE(AE):
         test_loss = 0.0
         for batch_idx, (X, y) in enumerate(test_loader):
             with torch.no_grad():
+                x = x.to(vaetorch.device)
                 if self.flat_input:
-                    X = X.view(X.shape[0], -1).to(vaetorch.device)
+                    X = X.view(X.shape[0], -1)
                 mu, log_var, X_rec = self.net(X)
                 rec_loss = self.rec_loss(X, X_rec)
                 kl_loss = self.kl_loss(mu, log_var)
