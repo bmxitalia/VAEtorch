@@ -122,12 +122,12 @@ class VAE(AE):
                     mu, log_var, X_rec = self.net(X)
                     if self.save_img_path is not None and first:
                         # save grid of images after the epoch
-                        save_image(X_rec[50:].cpu(), self.save_img_path + "/epoch_" + str(epoch + 1) + "-rec.jpg",
+                        save_image(X_rec[:50].cpu(), self.save_img_path + "/epoch_" + str(epoch + 1) + "-rec.jpg",
                                    nrow=10)
                         # generate images
-                        eps = torch.randn((50, self.net.latent_size))
+                        eps = torch.randn((50, self.net.latent_size)).to(vaetorch.device)
                         gen_images = self.net.dec(eps)
-                        save_image(gen_images, self.save_img_path + "/epoch_" + str(epoch + 1) + "-gen.jpg",
+                        save_image(gen_images.cpu(), self.save_img_path + "/epoch_" + str(epoch + 1) + "-gen.jpg",
                                    nrow=10)
                         first = False
                     rec_loss = self.rec_loss(X, X_rec)
