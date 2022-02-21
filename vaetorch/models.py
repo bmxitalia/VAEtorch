@@ -5,12 +5,13 @@ from torchvision.utils import save_image
 
 
 class AE:
-    def __init__(self, network, rec_loss, optimizer, save_path=None):
+    def __init__(self, network, rec_loss, optimizer, save_path=None, save_img_path=None):
         super(AE, self).__init__()
         self.net = network
         self.rec_loss = rec_loss
         self.path = save_path
         self.optimizer = optimizer
+        self.save_img_path = save_img_path
 
     def train(self, train_loader, val_loader, n_epochs, early_stop=None):
         early_counter = 0
@@ -29,10 +30,23 @@ class AE:
 
             # validation step
             val_loss = 0.0
+            first = True
             for batch_idx, (X, y) in enumerate(val_loader):
                 with torch.no_grad():
                     X = X.view(X.shape[0], -1).to(vaetorch.device)
                     X_rec = self.net(X)
+                    if self.save_img_path is not None and first:
+                        # save grid of images after the epoch
+                        save_image(X_rec[:50].view(-1, 1, 28, 28).cpu(),
+                                   self.save_img_path + "/epoch_" + str(epoch + 1) + "-rec.jpg",
+                                   nrow=10)
+                        # generate images
+                        eps = torch.randn((50, self.net.dec_layers[0].in_features)).to(vaetorch.device)
+                        gen_images = self.net.dec(eps)
+                        save_image(gen_images.view(-1, 1, 28, 28).cpu(),
+                                   self.save_img_path + "/epoch_" + str(epoch + 1) + "-gen.jpg",
+                                   nrow=10)
+                        first = False
                     loss = self.rec_loss(X, X_rec)
                     val_loss += loss
             if early_stop is not None:
@@ -84,10 +98,9 @@ class AE:
 
 class VAE(AE):
     def __init__(self, network, rec_loss, kl_loss, optimizer, save_path=None, flat_input=True, save_img_path=None):
-        super(VAE, self).__init__(network, rec_loss, optimizer, save_path)
+        super(VAE, self).__init__(network, rec_loss, optimizer, save_path, save_img_path)
         self.kl_loss = kl_loss
         self.flat_input = flat_input
-        self.save_img_path = save_img_path
 
     def train(self, train_loader, val_loader, n_epochs, early_stop=None):
         early_counter = 0
@@ -123,12 +136,14 @@ class VAE(AE):
                     mu, log_var, X_rec = self.net(X)
                     if self.save_img_path is not None and first:
                         # save grid of images after the epoch
-                        save_image(X_rec[:50].cpu(), self.save_img_path + "/epoch_" + str(epoch + 1) + "-rec.jpg",
+                        save_image(X_rec[:50].cpu() if not self.flat_input else X_rec[:50].view(-1, 1, 28, 28).cpu(),
+                                   self.save_img_path + "/epoch_" + str(epoch + 1) + "-rec.jpg",
                                    nrow=10)
                         # generate images
                         eps = torch.randn((50, self.net.latent_size)).to(vaetorch.device)
                         gen_images = self.net.dec(eps)
-                        save_image(gen_images.cpu(), self.save_img_path + "/epoch_" + str(epoch + 1) + "-gen.jpg",
+                        save_image(gen_images.cpu() if not self.flat_input else gen_images.view(-1, 1, 28, 28).cpu(),
+                                   self.save_img_path + "/epoch_" + str(epoch + 1) + "-gen.jpg",
                                    nrow=10)
                         first = False
                     rec_loss = self.rec_loss(X, X_rec)
@@ -138,6 +153,7 @@ class VAE(AE):
             if early_stop is not None:
                 val_loss /= len(val_loader)
                 if val_loss < best_val_loss:
+                    early_counter = 0
                     best_val_loss = val_loss
                     if self.path is not None:
                         self.save_model()
