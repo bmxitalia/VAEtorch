@@ -103,6 +103,8 @@ class VAE(AE):
         self.flat_input = flat_input
 
     def train(self, train_loader, val_loader, n_epochs, early_stop=None):
+        self.net.train()
+
         early_counter = 0
         best_val_loss = float('inf')
         for epoch in range(n_epochs):

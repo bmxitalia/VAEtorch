@@ -1,9 +1,12 @@
-import torch
-import vaetorch
 import math
 
+import torch
+from torch import nn
 
-class AEnet(torch.nn.Module):
+import vaetorch
+
+
+class AEnet(nn.Module):
     """
     Vanilla autoencoder network architecture. The latent dimension has a linear activation. The output layer has a
     sigmoid activation.
@@ -14,12 +17,13 @@ class AEnet(torch.nn.Module):
     :param act_func: activation function used in the hidden layers of the network. By default, the tanh activation
     function is used.
     """
-    def __init__(self, hidden_layers_size, act_func=torch.nn.Tanh()):
+
+    def __init__(self, hidden_layers_size, act_func=nn.Tanh()):
         super(AEnet, self).__init__()
-        self.enc_layers = torch.nn.ModuleList([torch.nn.Linear(i, j)
-                                               for i, j in zip(hidden_layers_size[:-1], hidden_layers_size[1:])])
-        self.dec_layers = torch.nn.ModuleList([torch.nn.Linear(i, j)
-                                               for i, j in zip(hidden_layers_size[:0:-1], hidden_layers_size[-2::-1])])
+        self.enc_layers = nn.ModuleList([nn.Linear(i, j)
+                                         for i, j in zip(hidden_layers_size[:-1], hidden_layers_size[1:])])
+        self.dec_layers = nn.ModuleList([nn.Linear(i, j)
+                                         for i, j in zip(hidden_layers_size[:0:-1], hidden_layers_size[-2::-1])])
         self.hidden_act = act_func
 
     def enc(self, x):
@@ -52,7 +56,7 @@ class AEnet(torch.nn.Module):
         return self.dec(z)
 
 
-class VAEnet(torch.nn.Module):
+class VAEnet(nn.Module):
     """
     VAE network architecture. The latent dimension has a linear activation (mu and log_var).
     The output layer has a sigmoid activation.
@@ -64,14 +68,15 @@ class VAEnet(torch.nn.Module):
     :param act_func: activation function used in the hidden layers of the network. By default, the tanh activation
     function is used.
     """
-    def __init__(self, hidden_layers_size, latent_size, act_func=torch.nn.Tanh()):
+
+    def __init__(self, hidden_layers_size, latent_size, act_func=nn.Tanh()):
         super(VAEnet, self).__init__()
-        self.enc_layers = torch.nn.ModuleList([torch.nn.Linear(i, j)
-                                               for i, j in zip(hidden_layers_size[:-1], hidden_layers_size[1:])])
-        self.dec_layers = torch.nn.ModuleList([torch.nn.Linear(i, j)
-                                               for i, j in zip(hidden_layers_size[:0:-1], hidden_layers_size[-2::-1])])
-        self.enc_layers.append(torch.nn.Linear(hidden_layers_size[-1], latent_size * 2))
-        self.dec_layers.insert(0, torch.nn.Linear(latent_size, hidden_layers_size[-1]))
+        self.enc_layers = nn.ModuleList([nn.Linear(i, j)
+                                         for i, j in zip(hidden_layers_size[:-1], hidden_layers_size[1:])])
+        self.dec_layers = nn.ModuleList([nn.Linear(i, j)
+                                         for i, j in zip(hidden_layers_size[:0:-1], hidden_layers_size[-2::-1])])
+        self.enc_layers.append(nn.Linear(hidden_layers_size[-1], latent_size * 2))
+        self.dec_layers.insert(0, nn.Linear(latent_size, hidden_layers_size[-1]))
         self.latent_size = latent_size
         self.hidden_act = act_func
 
@@ -115,7 +120,7 @@ class VAEnet(torch.nn.Module):
         return mu, log_var, self.dec(z)
 
 
-class CNNVAEnet(torch.nn.Module):
+class CNNVAEnet(nn.Module):
     """
     CNN VAE network architecture. The latent dimension has a linear activation (mu and log_var).
     The output layer has a sigmoid activation.
@@ -133,23 +138,31 @@ class CNNVAEnet(torch.nn.Module):
     :param act_func: activation function used in the hidden layers of the network. By default, the leaky relu activation
     function is used.
     """
+
     def __init__(self, cnn_act_maps, latent_size, input_size, kernel_size=3, stride=2, padding=1,
-        act_func=torch.nn.LeakyReLU()):
+                 act_func=nn.LeakyReLU()):
         super(CNNVAEnet, self).__init__()
-        get_out_size = lambda input_size: math.floor((input_size + 2 * padding - (kernel_size - 1) - 1) / stride + 1)
+
+        def get_out_size(size): return math.floor((size + 2 * padding - (kernel_size - 1) - 1) / stride + 1)
+
         out_size = input_size
         for i in range(len(cnn_act_maps) - 1):
             out_size = get_out_size(out_size)
-        self.cnn_enc_layers = torch.nn.ModuleList(
-            [torch.nn.Sequential(torch.nn.Conv2d(i, j, kernel_size, stride, padding)) for i, j in
-             zip(cnn_act_maps[:-1], cnn_act_maps[1:])])
-        self.cnn_dec_layers = torch.nn.ModuleList(
-            [torch.nn.Sequential(torch.nn.ConvTranspose2d(i, j, kernel_size, stride, padding, padding)) for i, j in
-             zip(cnn_act_maps[:0:-1], cnn_act_maps[-2::-1])])
-        self.flatten = torch.nn.Flatten(start_dim=1)
-        self.unflatten = torch.nn.Unflatten(1, (cnn_act_maps[-1], out_size, out_size))
-        self.fc_enc = torch.nn.Linear(cnn_act_maps[-1] * out_size ** 2, latent_size*2)
-        self.fc_dec = torch.nn.Linear(latent_size, cnn_act_maps[-1] * out_size ** 2)
+
+        self.cnn_enc_layers = nn.ModuleList([
+                nn.Sequential(
+                        nn.Conv2d(i, j, kernel_size, stride, padding)
+                ) for i, j in zip(cnn_act_maps[:-1], cnn_act_maps[1:])
+        ])
+        self.cnn_dec_layers = nn.ModuleList([
+                nn.Sequential(
+                        nn.ConvTranspose2d(i, j, kernel_size, stride, padding, padding)
+                ) for i, j in zip(cnn_act_maps[:0:-1], cnn_act_maps[-2::-1])
+        ])
+        self.flatten = nn.Flatten(start_dim=1)
+        self.unflatten = nn.Unflatten(1, (cnn_act_maps[-1], out_size, out_size))
+        self.fc_enc = nn.Linear(cnn_act_maps[-1] * out_size ** 2, latent_size * 2)
+        self.fc_dec = nn.Linear(latent_size, cnn_act_maps[-1] * out_size ** 2)
         self.hidden_act = act_func
         self.latent_size = latent_size
 
